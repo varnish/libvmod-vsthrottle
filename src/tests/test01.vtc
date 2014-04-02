@@ -1,4 +1,4 @@
-varnishtest "Test example vmod"
+varnishtest "Test vsthrottle vmod"
 
 server s1 {
        rxreq
@@ -6,17 +6,24 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import example from "${vmod_topbuild}/src/.libs/libvmod_example.so";
+	import vsthrottle from "${vmod_topbuild}/src/.libs/libvmod_vsthrottle.so";
 
 	sub vcl_deliver {
-		set resp.http.hello = example.hello("World");
+		if (!vsthrottle.is_denied("foo", 1, 1s)) {
+			set resp.http.f1 = "OK";
+		}
+
+		if (!vsthrottle.is_denied("foo", 1, 1s)) {
+			set resp.http.f2 = "OK";
+		}
 	}
 } -start
 
 client c1 {
 	txreq -url "/"
 	rxresp
-	expect resp.http.hello == "Hello, World"
+	expect resp.http.f1 == "OK"
+	expect resp.http.f2 == <undef>
 }
 
 client c1 -run
