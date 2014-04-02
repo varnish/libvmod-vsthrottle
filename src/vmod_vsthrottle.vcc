@@ -1,2 +1,2 @@
-$Module example 3 Example VMOD
-$Function STRING hello(STRING)
+$Module vsthrottle 3 Throttling VMOD
+$Function BOOL is_denied(STRING, INT, DURATION)
