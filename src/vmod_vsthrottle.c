@@ -9,6 +9,8 @@
 
 #include "vcc_if.h"
 
+static double VTIM_real(void);
+
 struct tkey {
 	const char *key;
 	VRB_ENTRY(tkey) tree;
@@ -47,7 +49,7 @@ tb_alloc(const char *key, long limit, double period) {
 
 	tb->key.key = strdup(key);
 	tb->magic = TBUCKET_MAGIC;
-	tb->last_used = 0;
+	tb->last_used = VTIM_real();
 	tb->period = period;
 	tb->tokens = limit;
 	tb->capacity = limit;
@@ -103,8 +105,8 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	if (b->tokens > 0) {
 		b->tokens -= 1;
 		ret = 0;
+		b->last_used = now;
 	}
-	b->last_used = now;
 
 	AZ(pthread_mutex_unlock(&mtx));
 	return (ret);
