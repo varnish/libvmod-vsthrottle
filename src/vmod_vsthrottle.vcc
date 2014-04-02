@@ -1,0 +1,2 @@
+$Module example 3 Example VMOD
+$Function STRING hello(STRING)
