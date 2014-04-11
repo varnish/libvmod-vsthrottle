@@ -82,7 +82,7 @@ VTIM_real(void) {
 }
 
 static void
-add_tokens(struct tbucket *b, double now) {
+calc_tokens(struct tbucket *b, double now) {
 	double delta = now - b->last_used;
 
 	b->tokens += (long) ((delta / b->period) * b->capacity);
@@ -101,7 +101,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	AZ(pthread_mutex_lock(&mtx));
 
 	b = get_bucket(key, limit, period);
-	add_tokens(b, now);
+	calc_tokens(b, now);
 	if (b->tokens > 0) {
 		b->tokens -= 1;
 		ret = 0;
