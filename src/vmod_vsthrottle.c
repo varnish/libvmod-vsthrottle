@@ -112,6 +112,26 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	return (ret);
 }
 
+/* Clean up expired entries. */
+void
+run_gc(void) {
+	struct tkey *x, *y;
+	struct tbucket *b;
+	double now = VTIM_real();
+
+	/* TODO: split this into multiple mutexes/trees ... */
+
+	AZ(pthread_mutex_lock(&mtx));
+	VRB_FOREACH_SAFE(x, tbtree, &tbs, y) {
+		CAST_OBJ_NOTNULL(b, (void *) x, TBUCKET_MAGIC);
+		if (now - b->last_used > b->period) {
+			VRB_REMOVE(tbtree, &tbs, x);
+			free(b->key.key);
+			free(b);
+		}
+	}
+	AZ(pthread_mutex_unlock(&mtx));
+}
 
 static void
 fini(void *priv)
