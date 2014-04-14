@@ -12,7 +12,7 @@
 static double VTIM_real(void);
 
 struct tkey {
-	const char *key;
+	char *key;
 	VRB_ENTRY(tkey) tree;
 };
 
@@ -61,7 +61,7 @@ static struct tbucket *
 get_bucket(const char *key, long limit, double period) {
 	struct tbucket *b;
 	struct tkey *pkey;
-	struct tkey k = { .key = key };
+	struct tkey k = { .key = (char *) key };
 
 	pkey = VRB_FIND(tbtree, &tbs, &k);
 	if (pkey) {
@@ -122,7 +122,15 @@ fini(void *priv)
 	assert(n_init > 0);
 	n_init--;
 	if (n_init == 0) {
-		/* Do cleanup */
+		struct tkey *x, *y;
+		struct tbucket *b;
+
+		VRB_FOREACH_SAFE(x, tbtree, &tbs, y) {
+			VRB_REMOVE(tbtree, &tbs, x);
+			CAST_OBJ_NOTNULL(b, (void *) x, TBUCKET_MAGIC);
+			free(b->key.key);
+			free(b);
+		}
 	}
 	AZ(pthread_mutex_unlock(&mtx));
 }
