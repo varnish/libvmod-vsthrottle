@@ -1,47 +1,71 @@
-============
-vmod_example
-============
+===============
+vmod_vsthrottle
+===============
 
-----------------------
-Varnish Example Module
-----------------------
+-------------------------
+Varnish Throttling Module
+-------------------------
 
-:Author: Martin Blix Grydeland
-:Date: 2011-05-26
+:Author: Dag Haavi Finstad
+:Date: 2014-04-17
 :Version: 1.0
 :Manual section: 3
 
 SYNOPSIS
 ========
 
-import example;
+import vsthrottle;
 
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod
-for Varnish 3.0 and later.
+A Varnish vmod for rate-limiting traffic on a single Varnish
+server. Offers a simple interface for throttling traffic on a per-key
+basis to a specific request rate.
 
-Implements the traditional Hello World as a vmod.
+Keys can be specified from any VCL string, e.g. based on client.ip, a
+specific cookie value, an API token, etc.
+
+The request rate is specified as the number of requests permitted over
+a period. To keep things simple, this is passed as two separate
+parameters, 'limit' and 'period'.
+
+This VMOD implements a `token-bucket algorithm`_. State associated
+with the token bucket for each key is stored in-memory using BSD's
+red-black tree implementation.
+
+Memory usage is around 100 bytes per key tracked.
+
+.. _token-bucket algorithm: http://en.wikipedia.org/wiki/Token_bucket
+
 
 FUNCTIONS
 =========
 
-hello
------
+is_denied
+---------
 
 Prototype
         ::
 
-                hello(STRING S)
+                is_denied(STRING key, INT limit, DURATION period)
 Return value
-	STRING
+	BOOL
 Description
-	Returns "Hello, " prepended to S
+	Can be used to rate limit the traffic for a specific key to a
+	maximum of 'limit' requests per 'period' time.
 Example
         ::
 
-                set resp.http.hello = example.hello("World");
+		sub vcl_recv {
+			if (vsthrottle.is_denied(client.identity, 15, 10s)) {
+				# Client has exceeded 15 reqs per 10s
+				return (synth(429, "Too Many Requests"));
+			}
+
+			# ...
+		}
+
 
 INSTALLATION
 ============
@@ -88,7 +112,7 @@ HISTORY
 This manual page was released as part of the libvmod-example package,
 demonstrating how to create an out-of-tree Varnish vmod. For further
 examples and inspiration check the vmod directory:
- https://www.varnish-cache.org/vmods
+https://www.varnish-cache.org/vmods
 
 COPYRIGHT
 =========
