@@ -11,43 +11,39 @@
 
 static double VTIM_real(void);
 
-struct tkey {
-	char *key;
-	VRB_ENTRY(tkey) tree;
-};
-
-static int
-keycmp(const struct tkey *k1, const struct tkey *k2) {
-	return (strcmp(k1->key, k2->key));
-}
-
-VRB_HEAD(tbtree, tkey);
-VRB_PROTOTYPE_STATIC(tbtree, tkey, tree, keycmp);
-VRB_GENERATE_STATIC(tbtree, tkey, tree, keycmp);
-
-static unsigned n_init;
-static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
-static struct tbtree tbs = VRB_INITIALIZER(&tbs);
-
 /* Represents a token bucket for a specific key. */
 struct tbucket {
-	struct tkey key;
+	char *key;
 	unsigned magic;
 #define TBUCKET_MAGIC 0x53345eb9
 	double last_used;
 	double period;
 	long tokens;
 	long capacity;
+	VRB_ENTRY(tbucket) tree;
 
 	/* TODO: be clever about locking/mutex granularity. */
 };
+
+static int
+keycmp(const struct tbucket *b1, const struct tbucket *b2) {
+	return (strcmp(b1->key, b2->key));
+}
+
+VRB_HEAD(tbtree, tbucket);
+VRB_PROTOTYPE_STATIC(tbtree, tbucket, tree, keycmp);
+VRB_GENERATE_STATIC(tbtree, tbucket, tree, keycmp);
+
+static unsigned n_init;
+static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+static struct tbtree tbs = VRB_INITIALIZER(&tbs);
 
 struct tbucket *
 tb_alloc(const char *key, long limit, double period) {
 	struct tbucket *tb = malloc(sizeof *tb);
 	AN(tb);
 
-	tb->key.key = strdup(key);
+	tb->key = strdup(key);
 	tb->magic = TBUCKET_MAGIC;
 	tb->last_used = VTIM_real();
 	tb->period = period;
@@ -60,15 +56,14 @@ tb_alloc(const char *key, long limit, double period) {
 static struct tbucket *
 get_bucket(const char *key, long limit, double period) {
 	struct tbucket *b;
-	struct tkey *pkey;
-	struct tkey k = { .key = (char *) key };
+	struct tbucket k = { .key = (char *) key };
 
-	pkey = VRB_FIND(tbtree, &tbs, &k);
-	if (pkey) {
-		CAST_OBJ_NOTNULL(b, (void *) pkey, TBUCKET_MAGIC);
+	b = VRB_FIND(tbtree, &tbs, &k);
+	if (b) {
+		CHECK_OBJ_NOTNULL(b, TBUCKET_MAGIC);
 	} else {
 		b = tb_alloc(key, limit, period);
-		AZ(VRB_INSERT(tbtree, &tbs, &b->key));
+		AZ(VRB_INSERT(tbtree, &tbs, b));
 	}
 	return (b);
 }
@@ -115,19 +110,18 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 /* Clean up expired entries. */
 void
 run_gc(void) {
-	struct tkey *x, *y;
-	struct tbucket *b;
+	struct tbucket *x, *y;
 	double now = VTIM_real();
 
 	/* TODO: split this into multiple mutexes/trees ... */
 
 	AZ(pthread_mutex_lock(&mtx));
 	VRB_FOREACH_SAFE(x, tbtree, &tbs, y) {
-		CAST_OBJ_NOTNULL(b, (void *) x, TBUCKET_MAGIC);
-		if (now - b->last_used > b->period) {
+		CHECK_OBJ_NOTNULL(x, TBUCKET_MAGIC);
+		if (now - x->last_used > x->period) {
 			VRB_REMOVE(tbtree, &tbs, x);
-			free(b->key.key);
-			free(b);
+			free(x->key);
+			free(x);
 		}
 	}
 	AZ(pthread_mutex_unlock(&mtx));
@@ -142,14 +136,13 @@ fini(void *priv)
 	assert(n_init > 0);
 	n_init--;
 	if (n_init == 0) {
-		struct tkey *x, *y;
-		struct tbucket *b;
+		struct tbucket *x, *y;
 
 		VRB_FOREACH_SAFE(x, tbtree, &tbs, y) {
+			CHECK_OBJ_NOTNULL(x, TBUCKET_MAGIC);
 			VRB_REMOVE(tbtree, &tbs, x);
-			CAST_OBJ_NOTNULL(b, (void *) x, TBUCKET_MAGIC);
-			free(b->key.key);
-			free(b);
+			free(x->key);
+			free(x);
 		}
 	}
 	AZ(pthread_mutex_unlock(&mtx));
