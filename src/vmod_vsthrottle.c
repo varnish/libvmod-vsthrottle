@@ -43,6 +43,12 @@ static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t mtx[N_PART];
 static struct tbtree tbs[N_PART];
 
+/* GC_INTVL: How often (in #calls per partition) we invoke the garbage
+   collector. */
+#define GC_INTVL	1000
+static unsigned gc_count[N_PART];
+static void run_gc(double now, unsigned part);
+
 static struct tbucket *
 tb_alloc(const unsigned char *digest, long limit, double period) {
 	struct tbucket *tb = malloc(sizeof *tb);
@@ -118,29 +124,29 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 		b->last_used = now;
 	}
 
+	gc_count[part]++;
+	if (gc_count[part] == GC_INTVL) {
+		run_gc(now, part);
+		gc_count[part] = 0;
+	}
+
 	AZ(pthread_mutex_unlock(&mtx[part]));
 	return (ret);
 }
 
 /* Clean up expired entries. */
-void
-run_gc(void) {
+static void
+run_gc(double now, unsigned part) {
 	struct tbucket *x, *y;
-	unsigned p;
-	double now = VTIM_real();
 
-	for (p = 0; p < N_PART; ++p) {
-		AZ(pthread_mutex_lock(&mtx[p]));
-		VRB_FOREACH_SAFE(x, tbtree, &tbs[p], y) {
-			CHECK_OBJ_NOTNULL(x, TBUCKET_MAGIC);
-			if (now - x->last_used > x->period) {
-				VRB_REMOVE(tbtree, &tbs[p], x);
-				free(x);
-			}
+	/* XXX: Assert mtx[part] is held ... */
+	VRB_FOREACH_SAFE(x, tbtree, &tbs[part], y) {
+		CHECK_OBJ_NOTNULL(x, TBUCKET_MAGIC);
+		if (now - x->last_used > x->period) {
+			VRB_REMOVE(tbtree, &tbs[part], x);
+			free(x);
 		}
-		AZ(pthread_mutex_unlock(&mtx[p]));
 	}
-
 }
 
 static void
