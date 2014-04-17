@@ -109,13 +109,15 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	unsigned char digest[DIGEST_LEN];
 	unsigned part;
 
+	if (!key)
+		return (1);
+
 	SHA256_Init(&sctx);
 	SHA256_Update(&sctx, key, strlen(key));
 	SHA256_Final(digest, &sctx);
 
 	part = digest[0] & N_PART_MASK;
 	AZ(pthread_mutex_lock(&mtx[part]));
-
 	b = get_bucket(digest, limit, period);
 	calc_tokens(b, now);
 	if (b->tokens > 0) {
