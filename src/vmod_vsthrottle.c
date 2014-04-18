@@ -10,7 +10,6 @@
 
 #include "vcc_if.h"
 
-static double VTIM_real(void);
 
 /* Represents a token bucket for a specific key. */
 struct tbucket {
@@ -50,13 +49,13 @@ static unsigned gc_count[N_PART];
 static void run_gc(double now, unsigned part);
 
 static struct tbucket *
-tb_alloc(const unsigned char *digest, long limit, double period) {
+tb_alloc(const unsigned char *digest, long limit, double period, double now) {
 	struct tbucket *tb = malloc(sizeof *tb);
 	AN(tb);
 
 	memcpy(tb->digest, digest, sizeof tb->digest);
 	tb->magic = TBUCKET_MAGIC;
-	tb->last_used = VTIM_real();
+	tb->last_used = now;
 	tb->period = period;
 	tb->tokens = limit;
 	tb->capacity = limit;
@@ -65,7 +64,7 @@ tb_alloc(const unsigned char *digest, long limit, double period) {
 }
 
 static struct tbucket *
-get_bucket(const unsigned char *digest, long limit, double period) {
+get_bucket(const unsigned char *digest, long limit, double period, double now) {
 	struct tbucket *b;
 	struct tbucket k = { 0 };
 	memcpy(&k.digest, digest, sizeof k.digest);
@@ -75,18 +74,10 @@ get_bucket(const unsigned char *digest, long limit, double period) {
 	if (b) {
 		CHECK_OBJ_NOTNULL(b, TBUCKET_MAGIC);
 	} else {
-		b = tb_alloc(digest, limit, period);
+		b = tb_alloc(digest, limit, period, now);
 		AZ(VRB_INSERT(tbtree, &tbs[part], b));
 	}
 	return (b);
-}
-
-/* Borrow this from vtim.c */
-static double
-VTIM_real(void) {
-	struct timeval tv;
-	assert(gettimeofday(&tv, NULL) == 0);
-	return (tv.tv_sec + 1e-6 * tv.tv_usec);
 }
 
 static void
@@ -99,12 +90,28 @@ calc_tokens(struct tbucket *b, double now) {
 	/* VSL(SLT_VCL_Log, 0, "tokens: %ld", b->tokens); */
 }
 
+static double
+get_ts_now(const struct vrt_ctx *ctx) {
+	double now;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	if (ctx->req) {
+		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
+		now = ctx->req->t_req;
+	} else {
+		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
+		now = ctx->bo->t_first;
+	}
+
+	return (now);
+}
+
 VCL_BOOL
 vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
     VCL_DURATION period) {
 	unsigned ret = 1;
 	struct tbucket *b;
-	double now = VTIM_real();
+	double now = get_ts_now(ctx);
 	SHA256_CTX sctx;
 	unsigned char digest[DIGEST_LEN];
 	unsigned part;
@@ -118,7 +125,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 
 	part = digest[0] & N_PART_MASK;
 	AZ(pthread_mutex_lock(&mtx[part]));
-	b = get_bucket(digest, limit, period);
+	b = get_bucket(digest, limit, period, now);
 	calc_tokens(b, now);
 	if (b->tokens > 0) {
 		b->tokens -= 1;
