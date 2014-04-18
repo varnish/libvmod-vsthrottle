@@ -39,14 +39,17 @@ VRB_GENERATE_STATIC(tbtree, tbucket, tree, keycmp);
 
 static unsigned n_init;
 static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t mtx[N_PART];
-static struct tbtree tbs[N_PART];
 
 /* GC_INTVL: How often (in #calls per partition) we invoke the garbage
    collector. */
 #define GC_INTVL	1000
-static unsigned gc_count[N_PART];
 static void run_gc(double now, unsigned part);
+
+static struct vsthrottle {
+	pthread_mutex_t mtx;
+	struct tbtree buckets;
+	unsigned gc_count;
+} vsthrottle[N_PART];
 
 static struct tbucket *
 tb_alloc(const unsigned char *digest, long limit, double period, double now) {
@@ -67,15 +70,16 @@ static struct tbucket *
 get_bucket(const unsigned char *digest, long limit, double period, double now) {
 	struct tbucket *b;
 	struct tbucket k = { 0 };
-	memcpy(&k.digest, digest, sizeof k.digest);
 	unsigned part = digest[0] & N_PART_MASK;
+	struct vsthrottle *v = &vsthrottle[part];
 
-	b = VRB_FIND(tbtree, &tbs[part], &k);
+	memcpy(&k.digest, digest, sizeof k.digest);
+	b = VRB_FIND(tbtree, &v->buckets, &k);
 	if (b) {
 		CHECK_OBJ_NOTNULL(b, TBUCKET_MAGIC);
 	} else {
 		b = tb_alloc(digest, limit, period, now);
-		AZ(VRB_INSERT(tbtree, &tbs[part], b));
+		AZ(VRB_INSERT(tbtree, &v->buckets, b));
 	}
 	return (b);
 }
@@ -113,6 +117,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	struct tbucket *b;
 	double now = get_ts_now(ctx);
 	SHA256_CTX sctx;
+	struct vsthrottle *v;
 	unsigned char digest[DIGEST_LEN];
 	unsigned part;
 
@@ -124,7 +129,8 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	SHA256_Final(digest, &sctx);
 
 	part = digest[0] & N_PART_MASK;
-	AZ(pthread_mutex_lock(&mtx[part]));
+	v = &vsthrottle[part];
+	AZ(pthread_mutex_lock(&v->mtx));
 	b = get_bucket(digest, limit, period, now);
 	calc_tokens(b, now);
 	if (b->tokens > 0) {
@@ -133,13 +139,13 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 		b->last_used = now;
 	}
 
-	gc_count[part]++;
-	if (gc_count[part] == GC_INTVL) {
+	v->gc_count++;
+	if (v->gc_count == GC_INTVL) {
 		run_gc(now, part);
-		gc_count[part] = 0;
+		v->gc_count = 0;
 	}
 
-	AZ(pthread_mutex_unlock(&mtx[part]));
+	AZ(pthread_mutex_unlock(&v->mtx));
 	return (ret);
 }
 
@@ -147,12 +153,13 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 static void
 run_gc(double now, unsigned part) {
 	struct tbucket *x, *y;
+	struct tbtree *buckets = &vsthrottle[part].buckets;
 
-	/* XXX: Assert mtx[part] is held ... */
-	VRB_FOREACH_SAFE(x, tbtree, &tbs[part], y) {
+	/* XXX: Assert mtx is held ... */
+	VRB_FOREACH_SAFE(x, tbtree, buckets, y) {
 		CHECK_OBJ_NOTNULL(x, TBUCKET_MAGIC);
 		if (now - x->last_used > x->period) {
-			VRB_REMOVE(tbtree, &tbs[part], x);
+			VRB_REMOVE(tbtree, buckets, x);
 			free(x);
 		}
 	}
@@ -170,9 +177,10 @@ fini(void *priv) {
 		unsigned p;
 
 		for (p = 0; p < N_PART; ++p ) {
-			VRB_FOREACH_SAFE(x, tbtree, &tbs[p], y) {
+			struct vsthrottle *v = &vsthrottle[p];
+			VRB_FOREACH_SAFE(x, tbtree, &v->buckets, y) {
 				CHECK_OBJ_NOTNULL(x, TBUCKET_MAGIC);
-				VRB_REMOVE(tbtree, &tbs[p], x);
+				VRB_REMOVE(tbtree, &v->buckets, x);
 				free(x);
 			}
 		}
@@ -188,8 +196,9 @@ init(struct vmod_priv *priv, const struct VCL_conf *conf) {
 	if (n_init == 0) {
 		unsigned p;
 		for (p = 0; p < N_PART; ++p) {
-			AZ(pthread_mutex_init(&mtx[p], NULL));
-			VRB_INIT(&tbs[p]);
+			struct vsthrottle *v = &vsthrottle[p];
+			AZ(pthread_mutex_init(&v->mtx, NULL));
+			VRB_INIT(&v->buckets);
 		}
 	}
 	n_init++;
