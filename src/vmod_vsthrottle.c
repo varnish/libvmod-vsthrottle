@@ -101,10 +101,10 @@ get_ts_now(const struct vrt_ctx *ctx) {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	if (ctx->req) {
 		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-		now = ctx->req->t_req;
+		now = ctx->req->t_prev;
 	} else {
 		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-		now = ctx->bo->t_first;
+		now = ctx->bo->t_prev;
 	}
 
 	return (now);
