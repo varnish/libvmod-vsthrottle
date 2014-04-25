@@ -46,9 +46,11 @@ static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
 static void run_gc(double now, unsigned part);
 
 static struct vsthrottle {
-	pthread_mutex_t mtx;
-	struct tbtree buckets;
-	unsigned gc_count;
+	unsigned magic;
+#define VSTHROTTLE_MAGIC	0x99fdbef8
+	pthread_mutex_t		mtx;
+	struct tbtree		buckets;
+	unsigned 		gc_count;
 } vsthrottle[N_PART];
 
 static struct tbucket *
@@ -197,6 +199,7 @@ init(struct vmod_priv *priv, const struct VCL_conf *conf) {
 		unsigned p;
 		for (p = 0; p < N_PART; ++p) {
 			struct vsthrottle *v = &vsthrottle[p];
+			v->magic = VSTHROTTLE_MAGIC;
 			AZ(pthread_mutex_init(&v->mtx, NULL));
 			VRB_INIT(&v->buckets);
 		}
