@@ -13,14 +13,14 @@
 
 /* Represents a token bucket for a specific key. */
 struct tbucket {
-	unsigned char 		digest[DIGEST_LEN];
-	unsigned 		magic;
-#define TBUCKET_MAGIC 		0x53345eb9
-	double 			last_used;
-	double 			period;
-	long 			tokens;
-	long 			capacity;
-	VRB_ENTRY(tbucket) 	tree;
+	unsigned		magic;
+#define TBUCKET_MAGIC		0x53345eb9
+	unsigned char		digest[DIGEST_LEN];
+	double			last_used;
+	double			period;
+	long			tokens;
+	long			capacity;
+	VRB_ENTRY(tbucket)	tree;
 };
 
 static int
@@ -34,8 +34,8 @@ VRB_GENERATE_STATIC(tbtree, tbucket, tree, keycmp);
 
 /* To lessen potential mutex contention, we partition the buckets into
    N_PART partitions.  */
-#define N_PART 		16 /* must be 2^n */
-#define N_PART_MASK 	(N_PART - 1)
+#define N_PART		16 /* must be 2^n */
+#define N_PART_MASK	(N_PART - 1)
 
 static unsigned n_init;
 static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -46,11 +46,11 @@ static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
 static void run_gc(double now, unsigned part);
 
 static struct vsthrottle {
-	unsigned magic;
+	unsigned		magic;
 #define VSTHROTTLE_MAGIC	0x99fdbef8
 	pthread_mutex_t		mtx;
 	struct tbtree		buckets;
-	unsigned 		gc_count;
+	unsigned		gc_count;
 } vsthrottle[N_PART];
 
 static struct tbucket *
