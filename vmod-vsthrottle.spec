@@ -1,19 +1,19 @@
-Summary: Example VMOD for Varnish
-Name: vmod-varnish-%{VARNISHVER}-example
+Summary: Request throttling VMOD for Varnish
+Name: vmod-varnish-%{VARNISHVER}-vsthrottle
 Version: 0.1
 Release: 1%{?dist}
 License: BSD
 Group: System Environment/Daemons
-Source0: libvmod-example.tar.gz
+Source0: libvmod-vsthrottle.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires: varnish > 3.0
 BuildRequires: make, python-docutils
 
 %description
-Example VMOD
+Request throttling VMOD for Varnish
 
 %prep
-%setup -n libvmod-example
+%setup -n libvmod-vsthrottle
 
 %build
 # this assumes that VARNISHSRC is defined on the rpmbuild command line, like this:
@@ -38,5 +38,7 @@ rm -rf %{buildroot}
 %{_mandir}/man?/*
 
 %changelog
+* Fri Nov 21 2014 Waldek Kozba <100assc@gmail.com> - 0.1-1.20141121
+- Changed spec file name and edited module descriptions.
 * Tue Nov 14 2012 Lasse Karstensen <lasse@varnish-software.com> - 0.1-0.20121114
 - Initial version.
