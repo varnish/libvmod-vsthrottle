@@ -2,13 +2,12 @@ Source: libvmod-vsthrottle
 Section: web
 Priority: extra
 Maintainer: Varnish Software <support@varnish-software.com>
-Build-Depends:
-        debhelper (>= 7),
-        build-essential,
-        python-docutils,
-        pkg-config,
-        varnish (>= 4.0.2),
-        libvarnishapi-dev (>= 4.0.2)
+Build-Depends: debhelper (>= 7),
+ build-essential,
+ python-docutils,
+ pkg-config,
+ varnish (>= 4.0.2),
+ libvarnishapi-dev (>= 4.0.2)
 Standards-Version: 3.8.1
 Vcs-Git: git://github.com/varnish/libvmod-vsthrottle.git
 
