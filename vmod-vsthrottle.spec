@@ -16,7 +16,7 @@ BuildRequires: varnish-libs-devel >= 4.0.2
 Request throttling VMOD for Varnish
 
 %prep
-%setup -n libvmod-vsthrottle
+%setup -n libvmod-vsthrottle-trunk
 
 %build
 %configure --prefix=/usr
