@@ -1,10 +1,10 @@
 Source: libvmod-vsthrottle
 Section: web
 Priority: extra
-Maintainer: Lasse Karstensen <lasse@varnish-software.com>
+Maintainer: Varnish Software <support@varnish-software.com>
 Build-Depends: debhelper (>= 7), build-essential, python-docutils
 Standards-Version: 3.8.1
-Vcs-Git: git://github.com/varnish/libvmod-example.git
+Vcs-Git: git://github.com/varnish/libvmod-vsthrottle.git
 
 Package: libvmod-vsthrottle
 Architecture: any
