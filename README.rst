@@ -49,6 +49,13 @@ Prototype
         ::
 
                 is_denied(STRING key, INT limit, DURATION period)
+Arguments
+	key: A unique identifier to define what is being throttled - more examples below
+	
+	limit: How many requests in the specified period
+	
+	period: The time period
+	
 Return value
 	BOOL
 Description
@@ -70,17 +77,16 @@ Example
 INSTALLATION
 ============
 
-This is an example skeleton for developing out-of-tree Varnish
-vmods available from the 3.0 release. It implements the "Hello, World!" 
-as a vmod callback. Not particularly useful in good hello world 
-tradition,but demonstrates how to get the glue around a vmod working.
+To be able to compile this vmod, varnish 4 must be installed,
+and the source tree must be locally available.
 
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
 using the varnishtest tool.
 
-Usage::
+Pre-installation configuration::
 
+ ./autogen.sh
  ./configure VARNISHSRC=DIR [VMODDIR=DIR]
 
 `VARNISHSRC` is the directory of the Varnish source tree for which to
@@ -91,27 +97,34 @@ Optionally you can also set the vmod install directory by adding
 `VMODDIR=DIR` (defaults to the pkg-config discovered directory from your
 Varnish installation).
 
-Make targets:
+Make and install the vmod::
+ 
+ make           # builds the vmod
+ make install   # installs your vmod in `VMODDIR`
+ make check     # runs the unit tests in ``src/tests/*.vtc``
+ 
+The libvmod-vsthrottle vmod will now be available in your VMODDIR and can be copied to other systems as required.
 
-* make - builds the vmod
-* make install - installs your vmod in `VMODDIR`
-* make check - runs the unit tests in ``src/tests/*.vtc``
+ 
+USAGE
+=====
 
-In your VCL you could then use this vmod along the following lines::
+In your VCL you can now use this vmod along the following lines::
         
-        import example;
+        import vsthrottle;
+        
+        sub vcl_recv {
+        	if (vsthrottle.is_denied(client.identity, 15, 10s)) {
+        	# Client has exceeded 15 reqs per 10s
+        	return (synth(429, "Too Many Requests"));
+        	}
+        } 
 
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
-        }
 
-HISTORY
-=======
+ADDITIONAL VMODS
+================
 
-This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod. For further
-examples and inspiration check the vmod directory:
+For further examples and inspiration check the vmod directory:
 https://www.varnish-cache.org/vmods
 
 COPYRIGHT
