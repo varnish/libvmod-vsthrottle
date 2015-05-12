@@ -77,9 +77,6 @@ Example
 INSTALLATION
 ============
 
-To be able to compile this vmod, varnish 4 must be installed,
-and the source tree must be locally available.
-
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
 using the varnishtest tool.
@@ -87,7 +84,15 @@ using the varnishtest tool.
 Pre-installation configuration::
 
  ./autogen.sh
- ./configure VARNISHSRC=DIR [VMODDIR=DIR]
+ ./configure
+
+If you have installed Varnish to a non-standard directory, call
+``autogen.sh`` and ``configure`` with ``PKG_CONFIG_PATH`` pointing to
+the appropriate path. For example, when varnishd configure was called
+with ``--prefix=$PREFIX``, use
+
+ PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
+ export PKG_CONFIG_PATH
 
 `VARNISHSRC` is the directory of the Varnish source tree for which to
 compile your vmod. Both the `VARNISHSRC` and `VARNISHSRC/include`
@@ -103,7 +108,8 @@ Make and install the vmod::
  make install   # installs your vmod in `VMODDIR`
  make check     # runs the unit tests in ``src/tests/*.vtc``
  
-The libvmod-vsthrottle vmod will now be available in your VMODDIR and can be copied to other systems as required.
+The libvmod-vsthrottle vmod will now be available in your VMODDIR and
+can be copied to other systems as required.
 
  
 USAGE
@@ -115,8 +121,8 @@ In your VCL you can now use this vmod along the following lines::
         
         sub vcl_recv {
         	if (vsthrottle.is_denied(client.identity, 15, 10s)) {
-        	# Client has exceeded 15 reqs per 10s
-        	return (synth(429, "Too Many Requests"));
+        		# Client has exceeded 15 reqs per 10s
+        		return (synth(429, "Too Many Requests"));
         	}
         } 
 
@@ -133,4 +139,4 @@ COPYRIGHT
 This document is licensed under the same license as the
 libvmod-example project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2015 Varnish Software
