@@ -98,7 +98,7 @@ calc_tokens(struct tbucket *b, double now) {
 }
 
 static double
-get_ts_mono(const struct vrt_ctx *ctx) {
+get_ts_mono(void) {
 	struct timespec ts;
 	AZ(clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (ts.tv_sec + 1e-9 * ts.tv_nsec);
@@ -109,7 +109,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
     VCL_DURATION period) {
 	unsigned ret = 1;
 	struct tbucket *b;
-	double now = get_ts_mono(ctx);
+	double now = get_ts_mono();
 	SHA256_CTX sctx;
 	struct vsthrottle *v;
 	unsigned char digest[DIGEST_LEN];
