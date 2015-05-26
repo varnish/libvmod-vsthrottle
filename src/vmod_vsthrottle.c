@@ -89,6 +89,7 @@ get_bucket(const unsigned char *digest, long limit, double period, double now) {
 static void
 calc_tokens(struct tbucket *b, double now) {
 	double delta = now - b->last_used;
+	assert(delta >= 0);
 
 	b->tokens += (long) ((delta / b->period) * b->capacity);
 	if (b->tokens > b->capacity)
@@ -97,19 +98,10 @@ calc_tokens(struct tbucket *b, double now) {
 }
 
 static double
-get_ts_now(const struct vrt_ctx *ctx) {
-	double now;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (ctx->req) {
-		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-		now = ctx->req->t_prev;
-	} else {
-		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-		now = ctx->bo->t_prev;
-	}
-
-	return (now);
+get_ts_mono(const struct vrt_ctx *ctx) {
+	struct timespec ts;
+	AZ(clock_gettime(CLOCK_MONOTONIC, &ts));
+	return (ts.tv_sec + 1e-9 * ts.tv_nsec);
 }
 
 VCL_BOOL
@@ -117,7 +109,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
     VCL_DURATION period) {
 	unsigned ret = 1;
 	struct tbucket *b;
-	double now = get_ts_now(ctx);
+	double now = get_ts_mono(ctx);
 	SHA256_CTX sctx;
 	struct vsthrottle *v;
 	unsigned char digest[DIGEST_LEN];
