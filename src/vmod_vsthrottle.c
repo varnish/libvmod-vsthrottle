@@ -109,7 +109,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
     VCL_DURATION period) {
 	unsigned ret = 1;
 	struct tbucket *b;
-	double now = get_ts_mono();
+	double now;
 	SHA256_CTX sctx;
 	struct vsthrottle *v;
 	unsigned char digest[DIGEST_LEN];
@@ -125,6 +125,7 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	part = digest[0] & N_PART_MASK;
 	v = &vsthrottle[part];
 	AZ(pthread_mutex_lock(&v->mtx));
+	now = get_ts_mono();
 	b = get_bucket(digest, limit, period, now);
 	calc_tokens(b, now);
 	if (b->tokens > 0) {
