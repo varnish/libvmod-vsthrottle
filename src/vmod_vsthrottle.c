@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "vcl.h"
 #include "vrt.h"
 #include "cache/cache.h"
 #include "vsha256.h"
+
 
 #include "vtree.h"
 #include <sys/time.h>
@@ -54,7 +55,8 @@ static struct vsthrottle {
 } vsthrottle[N_PART];
 
 static struct tbucket *
-tb_alloc(const unsigned char *digest, long limit, double period, double now) {
+tb_alloc(const unsigned char *digest, long limit, double period, double now)
+{
 	struct tbucket *tb = malloc(sizeof *tb);
 	AN(tb);
 
@@ -69,7 +71,8 @@ tb_alloc(const unsigned char *digest, long limit, double period, double now) {
 }
 
 static struct tbucket *
-get_bucket(const unsigned char *digest, long limit, double period, double now) {
+get_bucket(const unsigned char *digest, long limit, double period, double now)
+{
 	struct tbucket *b;
 	struct tbucket k = { 0 };
 	unsigned part = digest[0] & N_PART_MASK;
@@ -87,7 +90,8 @@ get_bucket(const unsigned char *digest, long limit, double period, double now) {
 }
 
 static void
-calc_tokens(struct tbucket *b, double now) {
+calc_tokens(struct tbucket *b, double now)
+{
 	double delta = now - b->last_used;
 	assert(delta >= 0);
 
@@ -98,15 +102,16 @@ calc_tokens(struct tbucket *b, double now) {
 }
 
 static double
-get_ts_mono(void) {
+get_ts_mono(void)
+{
 	struct timespec ts;
 	AZ(clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (ts.tv_sec + 1e-9 * ts.tv_nsec);
 }
 
 VCL_BOOL
-vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
-    VCL_DURATION period) {
+vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
+{
 	unsigned ret = 1;
 	struct tbucket *b;
 	double now;
@@ -146,7 +151,8 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 
 /* Clean up expired entries. */
 static void
-run_gc(double now, unsigned part) {
+run_gc(double now, unsigned part)
+{
 	struct tbucket *x, *y;
 	struct tbtree *buckets = &vsthrottle[part].buckets;
 
@@ -161,7 +167,9 @@ run_gc(double now, unsigned part) {
 }
 
 static void
-fini(void *priv) {
+fini(void *priv)
+{
+
 	assert(priv == &n_init);
 
 	AZ(pthread_mutex_lock(&init_mtx));
@@ -184,7 +192,11 @@ fini(void *priv) {
 }
 
 int
-init(struct vmod_priv *priv, const struct VCL_conf *conf) {
+event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
+{
+	if (e != VCL_EVENT_LOAD)
+		return (0);
+
 	priv->priv = &n_init;
 	priv->free = fini;
 	AZ(pthread_mutex_lock(&init_mtx));

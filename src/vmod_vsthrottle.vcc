@@ -1,3 +1,3 @@
 $Module vsthrottle 3 Throttling VMOD
-$Init init
+$Event event_function
 $Function BOOL is_denied(STRING, INT, DURATION)
