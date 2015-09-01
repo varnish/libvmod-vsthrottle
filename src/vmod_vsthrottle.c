@@ -1,8 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <time.h>
+#include <pthread.h>
+#include <errno.h>
 
+#include "vcl.h"
 #include "vrt.h"
-#include "cache/cache.h"
+#include "vas.h"
+#include "miniobj.h"
 #include "vsha256.h"
 
 #include "vtree.h"
@@ -15,7 +22,7 @@
 struct tbucket {
 	unsigned		magic;
 #define TBUCKET_MAGIC		0x53345eb9
-	unsigned char		digest[DIGEST_LEN];
+	unsigned char		digest[SHA256_LEN];
 	double			last_used;
 	double			period;
 	long			tokens;
@@ -117,7 +124,7 @@ vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
 	double now;
 	SHA256_CTX sctx;
 	struct vsthrottle *v;
-	unsigned char digest[DIGEST_LEN];
+	unsigned char digest[SHA256_LEN];
 	unsigned part;
 
 	if (!key)
