@@ -110,7 +110,8 @@ get_ts_mono(void)
 }
 
 VCL_BOOL
-vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
+vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
+    VCL_DURATION period)
 {
 	unsigned ret = 1;
 	struct tbucket *b;
