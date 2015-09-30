@@ -81,6 +81,12 @@ The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
 using the varnishtest tool.
 
+Note that due to changes between various Varnish Cache releases, there
+are multiple source branches. If you are building this VMOD for
+Varnish 4.0.x, please use the 4.0 branch. For 4.1.x, use the 4.1
+branch. The master branch should build for the current Varnish
+development version, but this may not always be the case.
+
 Pre-installation configuration::
 
  ./autogen.sh
