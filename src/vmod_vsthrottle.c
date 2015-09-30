@@ -12,6 +12,7 @@
 #include "miniobj.h"
 #include "vsha256.h"
 
+
 #include "vtree.h"
 #include <sys/time.h>
 
@@ -198,8 +199,11 @@ fini(void *priv)
 }
 
 int
-init(struct vmod_priv *priv, const struct VCL_conf *conf)
+event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
+	if (e != VCL_EVENT_LOAD)
+		return (0);
+
 	priv->priv = &n_init;
 	priv->free = fini;
 	AZ(pthread_mutex_lock(&init_mtx));
