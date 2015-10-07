@@ -60,7 +60,11 @@ Return value
 	BOOL
 Description
 	Can be used to rate limit the traffic for a specific key to a
-	maximum of 'limit' requests per 'period' time.
+	maximum of 'limit' requests per 'period' time. A token bucket
+	is uniquely identified by the triplet of its key, limit and
+	period, so using the same key multiple places with different
+	rules will create multiple token buckets.
+
 Example
         ::
 
