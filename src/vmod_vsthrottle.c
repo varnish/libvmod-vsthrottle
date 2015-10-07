@@ -161,6 +161,8 @@ vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
 
 	SHA256_Init(&sctx);
 	SHA256_Update(&sctx, key, strlen(key));
+	SHA256_Update(&sctx, &limit, sizeof (limit));
+	SHA256_Update(&sctx, &period, sizeof (period));
 	SHA256_Final(digest, &sctx);
 
 	part = digest[0] & N_PART_MASK;
