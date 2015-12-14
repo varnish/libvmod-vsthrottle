@@ -124,17 +124,3 @@ In your VCL you can now use this vmod along the following lines::
         	}
         } 
 
-
-ADDITIONAL VMODS
-================
-
-For further examples and inspiration check the vmod directory:
-https://www.varnish-cache.org/vmods
-
-COPYRIGHT
-=========
-
-This document is licensed under the same license as the
-libvmod-example project. See LICENSE for details.
-
-* Copyright (c) 2014-2015 Varnish Software
