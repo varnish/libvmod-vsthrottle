@@ -49,11 +49,22 @@ Prototype
         ::
 
                 is_denied(STRING key, INT limit, DURATION period)
+Arguments
+	key: A unique identifier to define what is being throttled - more examples below
+	
+	limit: How many requests in the specified period
+	
+	period: The time period
+	
 Return value
 	BOOL
 Description
 	Can be used to rate limit the traffic for a specific key to a
-	maximum of 'limit' requests per 'period' time.
+	maximum of 'limit' requests per 'period' time. A token bucket
+	is uniquely identified by the triplet of its key, limit and
+	period, so using the same key multiple places with different
+	rules will create multiple token buckets.
+
 Example
         ::
 
@@ -70,48 +81,58 @@ Example
 INSTALLATION
 ============
 
-This is an example skeleton for developing out-of-tree Varnish
-vmods available from the 3.0 release. It implements the "Hello, World!" 
-as a vmod callback. Not particularly useful in good hello world 
-tradition,but demonstrates how to get the glue around a vmod working.
-
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
 using the varnishtest tool.
 
-Usage::
+Note that due to changes between various Varnish Cache releases, there
+are multiple source branches. If you are building this VMOD for
+Varnish 4.0.x, please use the 4.0 branch. For 4.1.x, use the 4.1
+branch. The master branch should build for the current Varnish
+development version, but this may not always be the case.
 
- ./configure VARNISHSRC=DIR [VMODDIR=DIR]
+Pre-installation configuration::
 
-`VARNISHSRC` is the directory of the Varnish source tree for which to
-compile your vmod. Both the `VARNISHSRC` and `VARNISHSRC/include`
-will be added to the include search paths for your module.
+ ./autogen.sh
+ ./configure
 
-Optionally you can also set the vmod install directory by adding
-`VMODDIR=DIR` (defaults to the pkg-config discovered directory from your
-Varnish installation).
+If you have installed Varnish to a non-standard directory, call
+``autogen.sh`` and ``configure`` with ``PKG_CONFIG_PATH`` pointing to
+the appropriate path. For example, when varnishd configure was called
+with ``--prefix=$PREFIX``, use
 
-Make targets:
+ PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
+ export PKG_CONFIG_PATH
 
-* make - builds the vmod
-* make install - installs your vmod in `VMODDIR`
-* make check - runs the unit tests in ``src/tests/*.vtc``
+Make and install the vmod::
+ 
+ make           # builds the vmod
+ make install   # installs your vmod in `VMODDIR`
+ make check     # runs the unit tests in ``src/tests/*.vtc``
+ 
+The libvmod-vsthrottle vmod will now be available in your VMODDIR and
+can be copied to other systems as required.
 
-In your VCL you could then use this vmod along the following lines::
+ 
+USAGE
+=====
+
+In your VCL you can now use this vmod along the following lines::
         
-        import example;
+        import vsthrottle;
+        
+        sub vcl_recv {
+        	if (vsthrottle.is_denied(client.identity, 15, 10s)) {
+        		# Client has exceeded 15 reqs per 10s
+        		return (synth(429, "Too Many Requests"));
+        	}
+        } 
 
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
-        }
 
-HISTORY
-=======
+ADDITIONAL VMODS
+================
 
-This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod. For further
-examples and inspiration check the vmod directory:
+For further examples and inspiration check the vmod directory:
 https://www.varnish-cache.org/vmods
 
 COPYRIGHT
@@ -120,4 +141,4 @@ COPYRIGHT
 This document is licensed under the same license as the
 libvmod-example project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2014-2015 Varnish Software

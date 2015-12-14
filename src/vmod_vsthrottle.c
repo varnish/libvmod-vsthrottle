@@ -1,9 +1,45 @@
+/*-
+ * Copyright (c) 2013-2015 Varnish Software Group
+ * All rights reserved.
+ *
+ * Author: Dag Haavi Finstad <daghf@varnish-software.com>
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <time.h>
+#include <pthread.h>
+#include <errno.h>
 
+#include "vcl.h"
 #include "vrt.h"
-#include "cache/cache.h"
+#include "vas.h"
+#include "miniobj.h"
 #include "vsha256.h"
+
 
 #include "vtree.h"
 #include <sys/time.h>
@@ -15,7 +51,7 @@
 struct tbucket {
 	unsigned		magic;
 #define TBUCKET_MAGIC		0x53345eb9
-	unsigned char		digest[DIGEST_LEN];
+	unsigned char		digest[SHA256_LEN];
 	double			last_used;
 	double			period;
 	long			tokens;
@@ -24,7 +60,8 @@ struct tbucket {
 };
 
 static int
-keycmp(const struct tbucket *b1, const struct tbucket *b2) {
+keycmp(const struct tbucket *b1, const struct tbucket *b2)
+{
 	return (memcmp(b1->digest, b2->digest, sizeof b1->digest));
 }
 
@@ -54,7 +91,8 @@ static struct vsthrottle {
 } vsthrottle[N_PART];
 
 static struct tbucket *
-tb_alloc(const unsigned char *digest, long limit, double period, double now) {
+tb_alloc(const unsigned char *digest, long limit, double period, double now)
+{
 	struct tbucket *tb = malloc(sizeof *tb);
 	AN(tb);
 
@@ -69,7 +107,8 @@ tb_alloc(const unsigned char *digest, long limit, double period, double now) {
 }
 
 static struct tbucket *
-get_bucket(const unsigned char *digest, long limit, double period, double now) {
+get_bucket(const unsigned char *digest, long limit, double period, double now)
+{
 	struct tbucket *b;
 	struct tbucket k = { 0 };
 	unsigned part = digest[0] & N_PART_MASK;
@@ -87,8 +126,10 @@ get_bucket(const unsigned char *digest, long limit, double period, double now) {
 }
 
 static void
-calc_tokens(struct tbucket *b, double now) {
+calc_tokens(struct tbucket *b, double now)
+{
 	double delta = now - b->last_used;
+	assert(delta >= 0);
 
 	b->tokens += (long) ((delta / b->period) * b->capacity);
 	if (b->tokens > b->capacity)
@@ -97,30 +138,22 @@ calc_tokens(struct tbucket *b, double now) {
 }
 
 static double
-get_ts_now(const struct vrt_ctx *ctx) {
-	double now;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	if (ctx->req) {
-		CHECK_OBJ_NOTNULL(ctx->req, REQ_MAGIC);
-		now = ctx->req->t_prev;
-	} else {
-		CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
-		now = ctx->bo->t_prev;
-	}
-
-	return (now);
+get_ts_mono(void)
+{
+	struct timespec ts;
+	AZ(clock_gettime(CLOCK_MONOTONIC, &ts));
+	return (ts.tv_sec + 1e-9 * ts.tv_nsec);
 }
 
 VCL_BOOL
-vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
-    VCL_DURATION period) {
+vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
+{
 	unsigned ret = 1;
 	struct tbucket *b;
-	double now = get_ts_now(ctx);
+	double now;
 	SHA256_CTX sctx;
 	struct vsthrottle *v;
-	unsigned char digest[DIGEST_LEN];
+	unsigned char digest[SHA256_LEN];
 	unsigned part;
 
 	if (!key)
@@ -128,11 +161,14 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 
 	SHA256_Init(&sctx);
 	SHA256_Update(&sctx, key, strlen(key));
+	SHA256_Update(&sctx, &limit, sizeof (limit));
+	SHA256_Update(&sctx, &period, sizeof (period));
 	SHA256_Final(digest, &sctx);
 
 	part = digest[0] & N_PART_MASK;
 	v = &vsthrottle[part];
 	AZ(pthread_mutex_lock(&v->mtx));
+	now = get_ts_mono();
 	b = get_bucket(digest, limit, period, now);
 	calc_tokens(b, now);
 	if (b->tokens > 0) {
@@ -153,7 +189,8 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 
 /* Clean up expired entries. */
 static void
-run_gc(double now, unsigned part) {
+run_gc(double now, unsigned part)
+{
 	struct tbucket *x, *y;
 	struct tbtree *buckets = &vsthrottle[part].buckets;
 
@@ -168,7 +205,8 @@ run_gc(double now, unsigned part) {
 }
 
 static void
-fini(void *priv) {
+fini(void *priv)
+{
 	assert(priv == &n_init);
 
 	AZ(pthread_mutex_lock(&init_mtx));
@@ -191,7 +229,11 @@ fini(void *priv) {
 }
 
 int
-init(struct vmod_priv *priv, const struct VCL_conf *conf) {
+event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
+{
+	if (e != VCL_EVENT_LOAD)
+		return (0);
+
 	priv->priv = &n_init;
 	priv->free = fini;
 	AZ(pthread_mutex_lock(&init_mtx));
