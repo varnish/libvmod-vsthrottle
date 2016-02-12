@@ -34,7 +34,7 @@ AM_CONDITIONAL(HAVE_RST2MAN, [test "x$RST2MAN" != "xno"])
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/stdlib.h])
 
-AC_SEARCH_LIBS([clock_gettime], [-lrt],
+AC_SEARCH_LIBS([clock_gettime], [rt],
   [AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
    [Define to 1 if you have clock_gettime.])
 ])
