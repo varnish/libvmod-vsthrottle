@@ -3,7 +3,8 @@ AM_CPPFLAGS = @VMOD_INCLUDES@
 vmoddir = @VMOD_DIR@
 vmod_LTLIBRARIES = libvmod_vsthrottle.la
 
-libvmod_vsthrottle_la_LDFLAGS = -module -export-dynamic -avoid-version -shared
+libvmod_vsthrottle_la_LDFLAGS = -module -export-dynamic -avoid-version \
+	-shared $(LIBS)
 
 libvmod_vsthrottle_la_SOURCES = \
 	vcc_if.c \
