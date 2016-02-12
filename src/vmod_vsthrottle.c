@@ -38,6 +38,10 @@
 
 #include "vcc_if.h"
 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
 
 /* Represents a token bucket for a specific key. */
 struct tbucket {
@@ -128,6 +132,28 @@ calc_tokens(struct tbucket *b, double now)
 		b->tokens = b->capacity;
 	/* VSL(SLT_VCL_Log, 0, "tokens: %ld", b->tokens); */
 }
+
+/* OS X does not have clock_gettime */
+#ifdef __MACH__
+#define CLOCK_MONOTONIC SYSTEM_CLOCK
+
+int
+clock_gettime(clock_id_t clk_id, struct timespec *ts)
+{
+	kern_return_t retval = KERN_SUCCESS;
+	clock_serv_t cclock;
+	mach_timespec_t mts;
+
+	host_get_clock_service(mach_host_self(), clk_id, &cclock);
+	retval = clock_get_time(cclock, &mts);
+	mach_port_deallocate(mach_task_self(), cclock);
+	ts->tv_sec = mts.tv_sec;
+	ts->tv_nsec = mts.tv_nsec;
+
+	return retval;
+}
+
+#endif
 
 static double
 get_ts_mono(void)
