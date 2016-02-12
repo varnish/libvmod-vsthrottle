@@ -36,12 +36,21 @@
 #include <pthread.h>
 #include <errno.h>
 
+#if !defined(HAVE_CLOCK_GETTIME)
+# if defined(__APPLE__) && defined(__MACH__)
+#  include <mach/clock.h>
+#  include <mach/mach.h>
+#  define CLOCK_MONOTONIC SYSTEM_CLOCK
+# else
+#  error Unsupported platform
+# endif
+#endif
+
 #include "vcl.h"
 #include "vrt.h"
 #include "vas.h"
 #include "miniobj.h"
 #include "vsha256.h"
-
 
 #include "vtree.h"
 #include <sys/time.h>
@@ -91,12 +100,8 @@ static struct vsthrottle {
 	unsigned		gc_count;
 } vsthrottle[N_PART];
 
-#ifndef HAVE_CLOCK_GETTIME
+#if !defined(HAVE_CLOCK_GETTIME)
 #if defined(__APPLE__) && defined(__MACH__)
-#include <mach/clock.h>
-#include <mach/mach.h>
-#define CLOCK_MONOTONIC SYSTEM_CLOCK
-
 int
 clock_gettime(clock_id_t clk_id, struct timespec *ts)
 {
@@ -111,8 +116,6 @@ clock_gettime(clock_id_t clk_id, struct timespec *ts)
 	ts->tv_nsec = mts.tv_nsec;
 	return (retval);
 }
-#else
-#error Unsupported platform
 #endif
 #endif
 
