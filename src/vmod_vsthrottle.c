@@ -175,6 +175,8 @@ vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
 	unsigned char digest[DIGEST_LEN];
 	unsigned part;
 
+	(void)ctx;
+
 	if (!key)
 		return (1);
 
@@ -250,6 +252,8 @@ fini(void *priv)
 int
 init(struct vmod_priv *priv, const struct VCL_conf *conf)
 {
+	(void)conf;
+
 	priv->priv = &n_init;
 	priv->free = fini;
 	AZ(pthread_mutex_lock(&init_mtx));
