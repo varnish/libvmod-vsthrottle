@@ -33,6 +33,11 @@ AM_CONDITIONAL(HAVE_RST2MAN, [test "x$RST2MAN" != "xno"])
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/stdlib.h])
 
+AC_CHECK_FUNC([clock_gettime],
+  [AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
+   [Define to 1 if you have clock_gettime.])
+])
+
 # backwards compat with older pkg-config
 # - pull in AC_DEFUN from pkg.m4
 m4_ifndef([PKG_CHECK_VAR], [
