@@ -182,6 +182,8 @@ vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
 	unsigned char digest[SHA256_LEN];
 	unsigned part;
 
+	(void)ctx;
+
 	if (!key)
 		return (1);
 
@@ -257,6 +259,8 @@ fini(void *priv)
 int
 event_function(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
+	(void)ctx;
+
 	if (e != VCL_EVENT_LOAD)
 		return (0);
 
