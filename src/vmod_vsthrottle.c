@@ -28,13 +28,7 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <time.h>
-#include <pthread.h>
-#include <errno.h>
 
 #if !defined(HAVE_CLOCK_GETTIME)
 # if defined(__APPLE__) && defined(__MACH__)
@@ -48,12 +42,10 @@
 
 #include "vcl.h"
 #include "vrt.h"
-#include "vas.h"
-#include "miniobj.h"
+#include "cache/cache.h"
 #include "vsha256.h"
 
 #include "vtree.h"
-#include <sys/time.h>
 
 #include "vcc_if.h"
 
