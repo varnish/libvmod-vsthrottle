@@ -7,6 +7,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 
 EXTRA_DIST = README.rst LICENSE
 
+doc_DATA = README.rst LICENSE
+
 dist_man_MANS = vmod_vsthrottle.3
 MAINTAINERCLEANFILES = $(dist_man_MANS)
 

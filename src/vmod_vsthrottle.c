@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #if !defined(HAVE_CLOCK_GETTIME)
@@ -46,15 +45,18 @@
 #include "vsha256.h"
 
 #include "vtree.h"
-#include <sys/time.h>
 
 #include "vcc_if.h"
+
+#ifndef VRT_CTX
+#define VRT_CTX		const struct vrt_ctx *ctx
+#endif
 
 /* Represents a token bucket for a specific key. */
 struct tbucket {
 	unsigned		magic;
 #define TBUCKET_MAGIC		0x53345eb9
-	unsigned char		digest[DIGEST_LEN];
+	unsigned char		digest[SHA256_LEN];
 	double			last_used;
 	double			period;
 	long			tokens;
@@ -168,15 +170,14 @@ get_ts_mono(void)
 }
 
 VCL_BOOL
-vmod_is_denied(const struct vrt_ctx *ctx, VCL_STRING key, VCL_INT limit,
-    VCL_DURATION period)
+vmod_is_denied(VRT_CTX, VCL_STRING key, VCL_INT limit, VCL_DURATION period)
 {
 	unsigned ret = 1;
 	struct tbucket *b;
 	double now;
 	SHA256_CTX sctx;
 	struct vsthrottle *v;
-	unsigned char digest[DIGEST_LEN];
+	unsigned char digest[SHA256_LEN];
 	unsigned part;
 
 	(void)ctx;
